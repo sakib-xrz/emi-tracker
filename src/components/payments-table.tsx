@@ -135,7 +135,7 @@ export function PublicPaymentsTable({ payments }: PublicPaymentsTableProps) {
   return (
     <Card className="border-white/10 bg-card/95 backdrop-blur">
       <CardHeader>
-        <CardTitle className="font-bold">Payment Status</CardTitle>
+        <CardTitle className="font-bold">Payment History</CardTitle>
       </CardHeader>
       <CardContent>
         <Table>

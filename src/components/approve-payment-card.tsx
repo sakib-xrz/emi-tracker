@@ -33,6 +33,7 @@ type ApprovalResponse = {
 
 export function ApprovePaymentCard({ paymentId }: ApprovePaymentCardProps) {
   const [securityCode, setSecurityCode] = useState("");
+  const [isAmountVerified, setIsAmountVerified] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isApprovedNow, setIsApprovedNow] = useState(false);
 
@@ -154,6 +155,10 @@ export function ApprovePaymentCard({ paymentId }: ApprovePaymentCardProps) {
                 setSubmitError("Security code is required");
                 return;
               }
+              if (!isAmountVerified) {
+                setSubmitError("Please confirm you have verified the payment.");
+                return;
+              }
               setSubmitError(null);
               setIsApprovedNow(false);
               approveMutation.mutate();
@@ -174,7 +179,32 @@ export function ApprovePaymentCard({ paymentId }: ApprovePaymentCardProps) {
                 }
               />
             </div>
-            <Button type="submit" size="lg" className="h-10 w-full">
+            <label
+              htmlFor="amount_verified"
+              className="flex items-start gap-2 rounded-md border p-3 text-sm cursor-pointer hover:bg-muted"
+            >
+              <input
+                id="amount_verified"
+                type="checkbox"
+                checked={isAmountVerified}
+                onChange={(event) => {
+                  setIsAmountVerified(event.target.checked);
+                  if (event.target.checked) {
+                    setSubmitError(null);
+                  }
+                }}
+                className="mt-0.5 size-4 accent-primary"
+              />
+              <span className="text-muted-foreground leading-5">
+                I confirmed I received the mentioned amount.
+              </span>
+            </label>
+            <Button
+              type="submit"
+              size="lg"
+              className="h-10 w-full"
+              disabled={!isAmountVerified || approveMutation.isPending}
+            >
               {approveMutation.isPending ? "Approving..." : "Approve Payment"}
             </Button>
           </form>
