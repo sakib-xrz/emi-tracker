@@ -1,65 +1,93 @@
-import Image from "next/image";
+import Link from "next/link"
 
-export default function Home() {
+import { LoginCard } from "@/components/login-card"
+import { LogoutButton } from "@/components/logout-button"
+import { OwnerPaymentsTable } from "@/components/payments-table"
+import { PaymentForm } from "@/components/payment-form"
+import { SetupNotice } from "@/components/setup-notice"
+import { SummaryCard } from "@/components/summary-card"
+import { SummaryGrid } from "@/components/summary-grid"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import { EMI_CONFIG } from "@/lib/app-config"
+import { calculateSummary } from "@/lib/payments"
+import { isSupabaseConfigured } from "@/lib/supabase/env"
+import { createClient } from "@/lib/supabase/server"
+import type { PaymentRecord } from "@/lib/types"
+
+type HomePageProps = {
+  searchParams: Promise<{
+    error?: string
+  }>
+}
+
+export default async function Home({ searchParams }: HomePageProps) {
+  const params = await searchParams
+
+  if (!isSupabaseConfigured) {
+    return (
+      <main className="container mx-auto flex min-h-screen max-w-5xl items-center px-4 py-10">
+        <SetupNotice />
+      </main>
+    )
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return (
+      <main className="container mx-auto flex min-h-screen max-w-5xl items-center px-4 py-10">
+        <LoginCard error={params.error} />
+      </main>
+    )
+  }
+
+  const { data } = await supabase
+    .from("payments")
+    .select("*")
+    .order("installment_no", { ascending: true })
+
+  const payments = ((data ?? []) as PaymentRecord[]).map((payment) => ({
+    ...payment,
+    amount: Number(payment.amount),
+  }))
+  const summary = calculateSummary(payments)
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="container mx-auto w-full max-w-6xl px-4 py-6 sm:py-10">
+      <section className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight">EMI Tracker</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            {EMI_CONFIG.itemName} - {EMI_CONFIG.months} months | Principal{" "}
+            {EMI_CONFIG.principalDebt.toLocaleString()} BDT + {EMI_CONFIG.annualInterestRate}% interest ={" "}
+            {EMI_CONFIG.totalDebt.toLocaleString()} BDT
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/payment-history">Payment History</Link>
+          </Button>
+          <LogoutButton />
         </div>
-      </main>
-    </div>
-  );
+      </section>
+
+      {params.error ? (
+        <Alert variant="destructive" className="mb-4">
+          <AlertTitle>Action failed</AlertTitle>
+          <AlertDescription>{params.error}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <div className="grid gap-4">
+        <SummaryCard summary={summary} />
+        <SummaryGrid summary={summary} />
+        <PaymentForm />
+        <OwnerPaymentsTable payments={payments} />
+      </div>
+    </main>
+  )
 }
